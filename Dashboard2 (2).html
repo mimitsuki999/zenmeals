@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ZenMeal - Smart Nutrition Planner</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            /* Giữ nguyên bộ màu cũ */
+            --primary: #10b981;
+            --secondary: #047857;
+            --accent: #f59e0b;
+            --bg: #f0fdf4;
+            --white: #ffffff;
+            --text: #334151;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg); display: flex; height: 100vh; color: var(--text); overflow: hidden; }
+
+        /* --- SIDEBAR (Giữ nguyên style) --- */
+        .sidebar { width: 260px; background: var(--white); border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; padding: 25px; flex-shrink: 0; }
+        .logo { font-size: 22px; font-weight: 800; color: var(--primary); margin-bottom: 40px; display: flex; align-items: center; gap: 10px; }
+        .menu-item { padding: 12px 15px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 12px; color: #64748b; font-weight: 500; transition: 0.2s; margin-bottom: 5px; }
+        .menu-item:hover { background: #d1fae5; color: var(--secondary); }
+        /* Style cho menu đang chọn */
+        .menu-item.active { background: #d1fae5; color: var(--secondary); font-weight: 700; }
+
+        /* --- MAIN CONTENT --- */
+        .main { flex: 1; padding: 30px; overflow-y: auto; position: relative; }
+
+        /* --- TAB LOGIC (Mới thêm để ẩn hiện) --- */
+        .tab-content { display: none; width: 100%; height: 100%; }
+        /* Tab Planner giữ nguyên layout flex cũ */
+        #tab-planner.active { display: flex; gap: 30px; } 
+        /* Các tab khác hiển thị dạng cột */
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- PLANNER STYLES (Giữ nguyên y chang cũ) --- */
+        .input-panel { flex: 1; background: var(--white); padding: 30px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); height: fit-content; min-width: 300px; }
+        .panel-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-control { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 15px; transition: 0.2s; background: #f8fafc; }
+        .form-control:focus { border-color: var(--primary); outline: none; background: #fff; }
+        
+        .radio-group { display: flex; gap: 10px; }
+        .radio-option { flex: 1; }
+        .radio-option input { display: none; }
+        .radio-option label { display: block; padding: 10px; text-align: center; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-weight: 600; color: #64748b; font-size: 14px; transition: 0.2s; white-space: nowrap; }
+        .radio-option input:checked + label { background: var(--primary); color: white; border-color: var(--primary); }
+
+        .btn-calc { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; transition: 0.3s; margin-top: 10px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2); }
+        .btn-calc:hover { background: var(--secondary); transform: translateY(-2px); }
+
+        .result-panel { flex: 1.6; display: flex; flex-direction: column; gap: 20px; opacity: 0.5; pointer-events: none; transition: 0.5s; }
+        .result-panel.active-result { opacity: 1; pointer-events: all; }
+        .result-sub-container { display: flex; gap: 20px; flex: 1; }
+
+        .macro-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+        .macro-card { background: var(--white); padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); position: relative; overflow: hidden; }
+        .macro-card::before { content:''; position: absolute; top:0; left:0; width: 4px; height: 100%; }
+        .card-c1::before { background: var(--text); } .card-c2::before { background: #ef4444; } .card-c3::before { background: #f59e0b; } .card-c4::before { background: var(--primary); } 
+        .macro-value { font-size: 24px; font-weight: 800; color: var(--text); margin-bottom: 5px; }
+        .macro-label { font-size: 12px; color: #64748b; font-weight: 600; }
+
+        .schedule-card { background: var(--white); border-radius: 20px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); flex: 1; }
+        .timeline { position: relative; margin-top: 20px; padding-left: 30px; border-left: 2px solid #e2e8f0; }
+        .timeline-item { position: relative; margin-bottom: 25px; }
+        .timeline-item:last-child { margin-bottom: 0; }
+        .timeline-item::before { content: ''; position: absolute; left: -36px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--white); border: 2px solid var(--primary); z-index: 2; }
+        .time-label { font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+        .activity-name { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+        .meal-suggestion { font-size: 14px; color: #64748b; background: #f0fdf4; padding: 8px 12px; border-radius: 6px; margin-top: 5px; display: inline-block; width: 100%; }
+        
+        .ing-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .ing-table td { padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
+        .ing-qty { font-weight: 700; color: var(--primary); text-align: right; }
+
+        /* --- STYLES CHO 2 TAB MỚI (ACTIVITY & NUTRITION) --- */
+        .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding-bottom: 20px; }
+        .info-card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); transition: 0.3s; border: 1px solid #f1f5f9; }
+        .info-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.06); }
+        .info-header { font-size: 16px; font-weight: 700; margin-bottom: 15px; color: var(--secondary); display: flex; align-items: center; gap: 10px; }
+        .stat-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed #e2e8f0; font-size: 14px; color: #475569; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-val { font-weight: 700; color: var(--primary); }
+
+        /* ================= MOBILE RESPONSIVE ================= */
+        @media (max-width: 768px) {
+            body { flex-direction: column; height: auto; overflow: auto; background-color: #f8fafc; }
+
+            .sidebar { position: fixed; bottom: 0; left: 0; width: 100%; height: auto; flex-direction: row; justify-content: space-around; padding: 10px 15px; border-top: 1px solid #e2e8f0; z-index: 1000; box-shadow: 0 -4px 20px rgba(0,0,0,0.05); }
+            .logo { display: none; }
+            .menu-item { flex-direction: column; gap: 5px; font-size: 10px; padding: 5px; background: transparent !important; }
+            .menu-item i { font-size: 20px; }
+            .menu-item.active { color: var(--primary); }
+
+            .main { padding: 15px; padding-bottom: 90px; overflow: visible; }
+            
+            /* Điều chỉnh layout tab Planner trên mobile */
+            #tab-planner.active { flex-direction: column; gap: 20px; }
+            .result-sub-container { flex-direction: column; }
+            
+            .input-panel { padding: 20px; min-width: auto; }
+            .macro-grid { grid-template-columns: repeat(2, 1fr); }
+            
+            .info-grid { grid-template-columns: 1fr; } /* Thẻ thông tin xếp chồng trên mobile */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="logo"><i class="fas fa-leaf"></i> ZenMeal</div>
+        <div class="menu-item active" onclick="switchTab('planner', this)">
+            <i class="fas fa-calculator"></i> <span style="margin-top:2px">Planner</span>
+        </div>
+        <div class="menu-item" onclick="switchTab('activity', this)">
+            <i class="fas fa-fire"></i> <span style="margin-top:2px">Hoạt động</span>
+        </div>
+        <div class="menu-item" onclick="switchTab('nutrition', this)">
+            <i class="fas fa-apple-alt"></i> <span style="margin-top:2px">Dinh dưỡng</span>
+        </div>
+    </div>
+
+    <div class="main">
+        
+        <div id="tab-planner" class="tab-content active">
+            <div class="input-panel">
+                <div class="panel-title"><i class="fas fa-sliders-h"></i> Thiết lập hồ sơ</div>
+                <div class="form-group" style="display: flex; gap: 10px;">
+                    <div style="flex:1"><label class="form-label">Cân nặng (kg)</label><input type="number" id="weight" class="form-control" value="70"></div>
+                    <div style="flex:1"><label class="form-label">Chiều cao (cm)</label><input type="number" id="height" class="form-control" value="175"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Giới tính</label>
+                    <div class="radio-group">
+                        <div class="radio-option"><input type="radio" name="gender" id="male" value="male" checked><label for="male">Nam</label></div>
+                        <div class="radio-option"><input type="radio" name="gender" id="female" value="female"><label for="female">Nữ</label></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tính chất công việc</label>
+                    <select id="job-type" class="form-control">
+                        <option value="1.2">Văn phòng (Ngồi >6 tiếng/ngày)</option>
+                        <option value="1.375">Di chuyển nhẹ (Giáo viên, Sale)</option>
+                        <option value="1.55">Vận động nhiều (Phục vụ, Kỹ thuật)</option>
+                        <option value="1.7">Lao động nặng (Công trường)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tần suất tập luyện</label>
+                    <select id="workout-freq" class="form-control">
+                        <option value="0">Không tập luyện</option>
+                        <option value="0.1">Nhẹ nhàng (1-2 buổi/tuần)</option>
+                        <option value="0.2">Vừa phải (3-4 buổi/tuần)</option>
+                        <option value="0.3">Cường độ cao (5-6 buổi/tuần)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Mục tiêu thể hình</label>
+                    <div class="radio-group">
+                        <div class="radio-option"><input type="radio" name="goal" id="cut" value="cut"><label for="cut">Giảm mỡ</label></div>
+                        <div class="radio-option"><input type="radio" name="goal" id="main" value="main"><label for="main">Giữ cân</label></div>
+                        <div class="radio-option"><input type="radio" name="goal" id="bulk" value="bulk" checked><label for="bulk">Tăng cơ</label></div>
+                    </div>
+                </div>
+                <button class="btn-calc" onclick="generatePlan()">Phân Tích & Lên Lịch Zen <i class="fas fa-arrow-right"></i></button>
+            </div>
+
+            <div class="result-panel" id="resultPanel">
+                <div class="macro-grid">
+                    <div class="macro-card card-c1"><div class="macro-value" id="res-cal">0</div><div class="macro-label">Năng lượng (Kcal)</div></div>
+                    <div class="macro-card card-c2"><div class="macro-value" id="res-pro">0g</div><div class="macro-label">Protein (Đạm)</div></div>
+                    <div class="macro-card card-c3"><div class="macro-value" id="res-carb">0g</div><div class="macro-label">Carbs (Tinh bột)</div></div>
+                    <div class="macro-card card-c4"><div class="macro-value" id="res-fat">0g</div><div class="macro-label">Fat (Chất béo)</div></div>
+                </div>
+                <div class="result-sub-container">
+                    <div class="schedule-card">
+                        <div class="panel-title" style="color: var(--primary);"><i class="far fa-clock"></i> Lịch Trình Tối Ưu</div>
+                        <div class="timeline" id="timeline-content"></div>
+                    </div>
+                    <div class="schedule-card" style="flex: 0.8;">
+                        <div class="panel-title" style="color: var(--text);"><i class="fas fa-shopping-basket"></i> Đi Chợ (1 ngày)</div>
+                        <table class="ing-table"><tbody id="ing-list"></tbody></table>
+                        <div style="margin-top: 15px; font-size: 13px; color: #94a3b8; font-style: italic;">*Định lượng đã tính trừ hao hụt.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-activity" class="tab-content">
+            <div class="panel-title"><i class="fas fa-fire-alt"></i> Tra Cứu Tiêu Hao Calo (60 phút)</div>
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-header"><i class="fas fa-dumbbell"></i> Gym & Thể hình</div>
+                    <div class="stat-row"><span>Tập tạ nhẹ</span><span class="stat-val">~250 Kcal</span></div>
+                    <div class="stat-row"><span>Tập tạ nặng (Power)</span><span class="stat-val">~450 Kcal</span></div>
+                    <div class="stat-row"><span>HIIT / Crossfit</span><span class="stat-val">~600 Kcal</span></div>
+                </div>
+                <div class="info-card">
+                    <div class="info-header"><i class="fas fa-running"></i> Cardio & Sức bền</div>
+                    <div class="stat-row"><span>Đi bộ nhanh</span><span class="stat-val">~300 Kcal</span></div>
+                    <div class="stat-row"><span>Chạy bộ (Pace 6)</span><span class="stat-val">~600 Kcal</span></div>
+                    <div class="stat-row"><span>Đạp xe (Trong nhà)</span><span class="stat-val">~400 Kcal</span></div>
+                </div>
+                <div class="info-card">
+                    <div class="info-header"><i class="fas fa-futbol"></i> Thể thao khác</div>
+                    <div class="stat-row"><span>Bóng đá</span><span class="stat-val">~500 Kcal</span></div>
+                    <div class="stat-row"><span>Cầu lông</span><span class="stat-val">~350 Kcal</span></div>
+                    <div class="stat-row"><span>Bơi lội</span><span class="stat-val">~550 Kcal</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-nutrition" class="tab-content">
+            <div class="panel-title"><i class="fas fa-utensils"></i> Top Thực Phẩm Cho Gymer (100g)</div>
+            <div class="info-grid">
+                <div class="info-card" style="border-top: 3px solid #ef4444;">
+                    <div class="info-header" style="color: #ef4444;"><i class="fas fa-drumstick-bite"></i> Nguồn Protein</div>
+                    <div class="stat-row"><span>Ức gà (Sống)</span><span class="stat-val">23g Pro</span></div>
+                    <div class="stat-row"><span>Thịt bò nạc</span><span class="stat-val">26g Pro</span></div>
+                    <div class="stat-row"><span>Cá ngừ</span><span class="stat-val">25g Pro</span></div>
+                    <div class="stat-row"><span>Trứng gà (1 quả)</span><span class="stat-val">6g Pro</span></div>
+                </div>
+                <div class="info-card" style="border-top: 3px solid #f59e0b;">
+                    <div class="info-header" style="color: #f59e0b;"><i class="fas fa-bread-slice"></i> Nguồn Carb Tốt</div>
+                    <div class="stat-row"><span>Yến mạch</span><span class="stat-val">Low GI</span></div>
+                    <div class="stat-row"><span>Khoai lang</span><span class="stat-val">Giàu xơ</span></div>
+                    <div class="stat-row"><span>Gạo lứt</span><span class="stat-val">No lâu</span></div>
+                    <div class="stat-row"><span>Chuối</span><span class="stat-val">Pre-workout</span></div>
+                </div>
+                <div class="info-card" style="border-top: 3px solid #10b981;">
+                    <div class="info-header" style="color: #10b981;"><i class="fas fa-oil-can"></i> Chất Béo Tốt</div>
+                    <div class="stat-row"><span>Quả bơ</span><span class="stat-val">Omega-3</span></div>
+                    <div class="stat-row"><span>Dầu ô liu</span><span class="stat-val">Healthy</span></div>
+                    <div class="stat-row"><span>Hạnh nhân</span><span class="stat-val">Snack</span></div>
+                    <div class="stat-row"><span>Bơ đậu phộng</span><span class="stat-val">Energy</span></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 1. SCRIPT MỚI: CHUYỂN TAB ---
+        function switchTab(tabName, element) {
+            // Ẩn tất cả tab
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            // Hiện tab được chọn
+            document.getElementById('tab-' + tabName).classList.add('active');
+            
+            // Đổi màu menu
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        // --- 2. SCRIPT CŨ: LOGIC TÍNH TOÁN (KHÔNG ĐỔI) ---
+        function generatePlan() {
+            // Get Inputs
+            const weight = parseFloat(document.getElementById('weight').value);
+            const height = parseFloat(document.getElementById('height').value);
+            const jobFactor = parseFloat(document.getElementById('job-type').value);
+            const workoutFactor = parseFloat(document.getElementById('workout-freq').value);
+            const goal = document.querySelector('input[name="goal"]:checked').value;
+            const gender = document.querySelector('input[name="gender"]:checked').value; 
+
+            // Logic: BMR
+            let bmr = 10 * weight + 6.25 * height - 5 * 25;
+            if (gender === 'male') { bmr += 5; } else { bmr -= 161; }
+
+            // Logic: TDEE
+            const totalFactor = jobFactor + workoutFactor;
+            let tdee = bmr * totalFactor;
+
+            // Goal Adjustment
+            let targetCal = tdee;
+            if (goal === 'cut') targetCal -= 400;
+            if (goal === 'bulk') targetCal += 350;
+
+            // Macro Split
+            let protein = weight * (goal === 'bulk' ? 2.2 : 2.0); 
+            let fat = weight * 0.9;
+            let carb = (targetCal - (protein * 4) - (fat * 9)) / 4;
+
+            // Update DOM
+            document.getElementById('res-cal').innerText = Math.round(targetCal);
+            document.getElementById('res-pro').innerText = Math.round(protein) + 'g';
+            document.getElementById('res-carb').innerText = Math.round(carb) + 'g';
+            document.getElementById('res-fat').innerText = Math.round(fat) + 'g';
+
+            // Generate Timeline
+            const timelineDiv = document.getElementById('timeline-content');
+            let scheduleHtml = '';
+            const isOfficeJob = jobFactor < 1.4; 
+            
+            if (isOfficeJob) {
+                scheduleHtml = `
+                    <div class="timeline-item"><div class="time-label">07:00 - Khởi động</div><div class="activity-name">Thức dậy & Vệ sinh</div><div class="meal-suggestion"><i class="fas fa-coffee"></i> 1 ly nước chanh ấm + Cafe đen</div></div>
+                    <div class="timeline-item"><div class="time-label">07:30 - Bữa Sáng</div><div class="meal-suggestion"><i class="fas fa-utensils"></i> Yến mạch + Trứng luộc</div></div>
+                    <div class="timeline-item"><div class="time-label">12:00 - Bữa Trưa</div><div class="activity-name">Nghỉ trưa văn phòng</div><div class="meal-suggestion"><i class="fas fa-utensils"></i> Cơm gạo lứt + Ức gà + Rau xanh</div></div>
+                    <div class="timeline-item"><div class="time-label">16:30 - Bữa Phụ</div><div class="meal-suggestion"><i class="fas fa-cookie-bite"></i> Sữa chua Hy Lạp / Whey</div></div>
+                    <div class="timeline-item"><div class="time-label">17:30 - Tập Luyện</div><div class="activity-name">Gym / Cardio / Yoga</div></div>
+                    <div class="timeline-item"><div class="time-label">19:30 - Bữa Tối</div><div class="meal-suggestion"><i class="fas fa-utensils"></i> Salad cá ngừ / Cá hồi + Khoai</div></div>
+                `;
+            } else {
+                scheduleHtml = `
+                    <div class="timeline-item"><div class="time-label">06:30 - Bữa Sáng Lớn</div><div class="activity-name">Nạp năng lượng</div><div class="meal-suggestion"><i class="fas fa-utensils"></i> Phở bò (ít bánh) + Trứng trần</div></div>
+                    <div class="timeline-item"><div class="time-label">10:00 - Snack</div><div class="meal-suggestion"><i class="fas fa-apple-alt"></i> Các loại hạt / Chuối</div></div>
+                    <div class="timeline-item"><div class="time-label">12:30 - Bữa Trưa</div><div class="meal-suggestion"><i class="fas fa-utensils"></i> Cơm trắng + Thịt kho nạc + Canh rau</div></div>
+                    <div class="timeline-item"><div class="time-label">18:00 - Tập Luyện</div><div class="activity-name">Tập vừa sức</div></div>
+                    <div class="timeline-item"><div class="time-label">19:30 - Bữa Tối</div><div class="meal-suggestion"><i class="fas fa-drumstick-bite"></i> Ức gà áp chảo + Bông cải xanh</div></div>
+                `;
+            }
+            timelineDiv.innerHTML = scheduleHtml;
+
+            // Generate Ingredients
+            const chickenG = Math.round(protein * 3.5); 
+            const riceG = Math.round(carb * 1.5);
+            const vegG = gender === 'male' ? 450 : 350;
+            
+            document.getElementById('ing-list').innerHTML = `
+                <tr><td>Thịt (Gà/Bò/Cá)</td><td class="ing-qty">${chickenG}g</td></tr>
+                <tr><td>Tinh bột (Gạo/Khoai)</td><td class="ing-qty">${riceG}g</td></tr>
+                <tr><td>Rau củ các loại</td><td class="ing-qty">${vegG}g</td></tr>
+                <tr><td>Trứng gà</td><td class="ing-qty">${gender === 'male' ? '2-3' : '1-2'} quả</td></tr>
+                <tr><td>Hoa quả (Táo/Chuối)</td><td class="ing-qty">200g</td></tr>
+            `;
+
+            const resultPanel = document.getElementById('resultPanel');
+            resultPanel.classList.add('active-result'); // Sử dụng class mới để tránh xung đột
+            
+            if (window.innerWidth < 768) {
+                setTimeout(() => { resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100);
+            }
+        }
+    </script>
+</body>
+</html>
